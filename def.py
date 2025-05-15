@@ -23,7 +23,7 @@ st.markdown(page_bg, unsafe_allow_html=True)
 st.title("🔵 Dự đoán Độ Võng Cực Đại của Dầm (delta_max)")
 
 def resource_path(relative_path):
-    """Lấy đúng đường dẫn file, kể cả khi chạy .exe"""
+    """Trả về đường dẫn đúng dù chạy .exe hay chạy thường"""
     try:
         base_path = sys._MEIPASS
     except Exception:
@@ -32,13 +32,14 @@ def resource_path(relative_path):
 
 # Load mô hình và scaler
 model = keras.models.load_model(resource_path('fnn_deflection_model.h5'))
+
 with open(resource_path('x_scaler.pkl'), 'rb') as f:
     x_scaler = pickle.load(f)
 
 with open(resource_path('y_scaler.pkl'), 'rb') as f:
     y_scaler = pickle.load(f)
 
-# Nhập input
+# Giao diện nhập liệu
 st.subheader("Nhập thông số dầm:")
 
 b = st.number_input("Bề rộng b (m)", min_value=0.01, value=0.15, step=0.01)
@@ -47,33 +48,29 @@ E = st.number_input("Mô đun đàn hồi E (Pa)", min_value=1e5, value=2.0e11, 
 L = st.number_input("Chiều dài dầm L (m)", min_value=0.1, value=3.0, step=0.1)
 F = st.number_input("Tải trọng F (N)", min_value=0.0, value=5000.0, step=100.0)
 
+# Nút dự đoán
 if st.button("Dự đoán độ võng cực đại"):
-    # Chuẩn bị dữ liệu input
+    # Chuẩn bị và chuẩn hóa đầu vào
     input_data = np.array([[b, h, E, L, F]])
-
-    # Chuẩn hóa đầu vào
     input_scaled = x_scaler.transform(input_data)
 
-    # Dự đoán
+    # Dự đoán và giải chuẩn hóa
     delta_scaled = model.predict(input_scaled)
-
-    # Đảo chuẩn hóa đầu ra
     delta_max_pred = y_scaler.inverse_transform(delta_scaled)[0][0]
 
+    # Hiển thị kết quả
     st.success(f"✅ Độ võng cực đại dự đoán là: **{delta_max_pred:.6e} m**")
 
-    # Vẽ mô hình cây dầm Cantilever
+    # Vẽ mô hình độ võng
     x = np.linspace(0, L, 100)
-    y = -(F * x**2) / (6 * E * (b * h**3)) * (3 * L - x)  # Công thức dầm cantilever
+    y = -(F * x**2) / (6 * E * (b * h**3)) * (3 * L - x)
 
     fig, ax = plt.subplots(figsize=(8, 3))
     ax.plot(x, y, color='blue', linewidth=3)
-
     ax.set_xlabel("Chiều dài dầm (m)")
     ax.set_ylabel("Độ võng (m)")
     ax.set_title("Mô hình Dầm Cantilever Bị Võng")
     ax.grid(True)
     ax.set_xlim(0, L)
     ax.set_ylim(1.5 * np.min(y), 0.5 * np.max(y))
-
     st.pyplot(fig)
